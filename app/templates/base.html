@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titre %}Recherche produits fournisseurs{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Recherche produits fournisseurs</a>
+    <nav>
+      <a href="/">Catalogue démo</a>
+      <a href="/recherche-web">Recherche web</a>
+      <a href="/api/options" target="_blank" rel="noopener">API</a>
+    </nav>
+  </header>
+  <main class="container">
+    {% block contenu %}{% endblock %}
+  </main>
+  <footer class="footer">
+    Catalogue de démonstration — fournisseurs et prix fictifs à but d'illustration.
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
