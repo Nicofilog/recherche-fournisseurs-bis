@@ -6,6 +6,7 @@ from fastapi.templating import Jinja2Templates
 from .data import categories, fournisseurs_index, offres_enrichies, produits_index
 from .search import (formater_prix, logistique_texte, normalize, options_filtres,
                      offres_produit, rechercher)
+from .websearch import rechercher_web
 
 app = FastAPI(title="Recherche produits fournisseurs")
 
@@ -91,6 +92,47 @@ def api_produit(pid: str, tri: str = "pertinence"):
     offres = offres_produit(pid, tri=tri)
     return {"produit": pi[pid],
             "offres": [_ligne(o, i + 1) for i, o in enumerate(offres)]}
+
+
+@app.get("/recherche-web", response_class=HTMLResponse)
+def page_web(request: Request):
+    q = request.query_params
+    fabricant = q.get("fabricant", "").strip()
+    reference = q.get("reference", "").strip()
+    designation = q.get("designation", "").strip()
+    zone = q.get("zone", "france")
+    livraison = _bool(q.get("livraison"))
+    soumis = q.get("soumis") == "1"
+    resultat = None
+    erreur = None
+    if soumis:
+        if not (fabricant or reference or designation):
+            erreur = "Indique au moins un fabricant, une référence ou une désignation."
+        else:
+            resultat = rechercher_web(fabricant, reference, designation, zone, livraison)
+            if not resultat["fetch_ok"]:
+                erreur = ("Les moteurs de recherche ont refusé l'accès automatique depuis ce poste. "
+                          "Les résultats ne sont pas extraits, mais les liens « ouvrir dans ton navigateur » "
+                          "ci-dessous lancent la vraie recherche sur Google, Bing et DuckDuckGo.")
+    return templates.TemplateResponse(request, "web.html", {
+        "fabricant": fabricant, "reference": reference, "designation": designation,
+        "zone": zone if zone in ("france", "europe", "monde") else "france",
+        "livraison": livraison, "soumis": soumis, "resultat": resultat, "erreur": erreur,
+        "options": options_filtres()})
+
+
+@app.get("/api/recherche-web")
+def api_web(request: Request):
+    q = request.query_params
+    fabricant = q.get("fabricant", "").strip()
+    reference = q.get("reference", "").strip()
+    designation = q.get("designation", "").strip()
+    zone = q.get("zone", "france")
+    livraison = _bool(q.get("livraison"))
+    if not (fabricant or reference or designation):
+        return JSONResponse({"detail": "Indique au moins fabricant, reference ou designation."},
+                            status_code=422)
+    return rechercher_web(fabricant, reference, designation, zone, livraison)
 
 
 @app.get("/api/options")

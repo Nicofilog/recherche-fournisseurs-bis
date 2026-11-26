@@ -5,7 +5,13 @@ inspirée du skill « recherche-fournisseurs » : recherche par fabricant, réf�
 désignation, filtres logistiques, classement par pertinence (zone France d'abord, prix public,
 livrable en France), et génération de mails de demande de devis personnalisés.
 
-Les données sont un **jeu de démonstration intégré** (fournisseurs, produits et prix fictifs).
+Les données du **catalogue démo** sont un jeu de démonstration intégré (fournisseurs, produits et prix fictifs).
+
+L'application a aussi un mode **Recherche web** (`/recherche-web`) : à partir d'un fabricant, d'une référence
+constructeur ou d'une désignation, elle lance des requêtes sur plusieurs moteurs (référence entre guillemets,
+« prix / acheter », « distributeur officiel », « livraison France »…), extrait les fournisseurs trouvés
+(site, extrait, prix indicatif) et fournit des liens pour ouvrir chaque requête dans Google / Bing / DuckDuckGo.
+Si les moteurs bloquent l'accès automatique, les liens navigateur restent disponibles.
 
 ## Lancer l'application
 
@@ -40,6 +46,7 @@ Alternative : `uvicorn app.main:app --host 127.0.0.1 --port 8000` depuis la raci
 - `GET /api/recherche?q=&fabricant=&zone=&categorie=&prix_min=&prix_max=&dispo=1&livraison_france=1&enlevement=1&incoterms=&tri=`
 - `GET /api/produit/{id}?tri=`
 - `GET /api/options`
+- `GET /api/recherche-web?fabricant=&reference=&designation=&zone=france|europe|monde&livraison=1`
 - `GET /sante`
 
 ## Tests
@@ -53,10 +60,12 @@ pytest -q
 ```
 app/
   main.py        routes FastAPI (pages HTML + API JSON)
-  search.py      moteur de recherche, filtres, score de pertinence
+  search.py      moteur de recherche du catalogue démo (filtres, score de pertinence)
+  websearch.py   recherche web multi-moteurs (requêtes, parsing, prix indicatifs)
   data.py        jeu de données de démonstration (fournisseurs, produits, offres)
-  templates/     pages HTML (Jinja2)
+  templates/     pages HTML (Jinja2) : index, produit, web, base, 404
   static/        feuille de style
 tests/
-  test_search.py tests du moteur et de l'API
+  test_search.py   tests du catalogue démo et de l'API
+  test_websearch.py tests de la recherche web (fixtures HTML, sans réseau)
 ```

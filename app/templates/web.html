@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block titre %}Recherche web — fournisseurs{% endblock %}
+{% block contenu %}
+  <section class="fiche">
+    <h1>Recherche de fournisseurs sur le web</h1>
+    <p class="sous">Saisis un fabricant, une référence constructeur ou une désignation. L'application lance des requêtes
+      sur plusieurs moteurs (référence entre guillemets, « prix / acheter », « distributeur officiel », « livraison France »…)
+      et affiche les fournisseurs trouvés. Tu peux aussi ouvrir chaque requête directement dans ton navigateur.</p>
+    <form class="filtres" method="get" action="/recherche-web">
+      <input type="hidden" name="soumis" value="1">
+      <div class="ligne-champs">
+        <label class="champ"><span>Fabricant</span>
+          <input type="text" name="fabricant" value="{{ fabricant }}" placeholder="ex. Schneider Electric, SKF, Festo"></label>
+        <label class="champ"><span>Référence constructeur</span>
+          <input type="text" name="reference" value="{{ reference }}" placeholder="ex. ref. catalogue"></label>
+        <label class="champ large"><span>Désignation produit</span>
+          <input type="text" name="designation" value="{{ designation }}" placeholder='ex. "disjoncteur différentiel 30 mA 40 A type A"'></label>
+      </div>
+      <div class="ligne-champs cases">
+        <label class="champ"><span>Zone</span>
+          <select name="zone">
+            <option value="france" {% if zone == "france" %}selected{% endif %}>France d'abord</option>
+            <option value="europe" {% if zone == "europe" %}selected{% endif %}>Europe</option>
+            <option value="monde" {% if zone == "monde" %}selected{% endif %}>Monde</option>
+          </select>
+        </label>
+        <label class="case"><input type="checkbox" name="livraison" value="1" {% if livraison %}checked{% endif %}> Chercher aussi les conditions logistiques (EXW/FCA, Incoterms)</label>
+        <button class="btn" type="submit">Lancer la recherche web</button>
+        <a class="btn secondaire" href="/">Catalogue démo</a>
+      </div>
+    </form>
+    {% if erreur %}
+      <p class="resume" style="color:#b91c1c"><strong>{{ erreur }}</strong></p>
+    {% endif %}
+  </section>
+
+  {% if resultat %}
+  <section>
+    <h2>{{ resultat.resultats | length }} résultat{{ 's' if resultat.resultats | length > 1 }} trouvé{{ 's' if resultat.resultats | length > 1 }} sur {{ resultat.requetes | length }} requête{{ 's' if resultat.requetes | length > 1 }}</h2>
+    {% if resultat.resultats %}
+    <div class="table-wrap">
+      <table class="resultats">
+        <thead>
+          <tr><th>#</th><th>Fournisseur / page trouvée</th><th>Site</th><th>Extrait</th><th>Prix (indicatif)</th><th>Requête</th></tr>
+        </thead>
+        <tbody>
+          {% for r in resultat.resultats %}
+          <tr>
+            <td class="num">{{ loop.index }}</td>
+            <td><a href="{{ r.url }}" target="_blank" rel="noopener" class="lien-produit">{{ r.titre }}</a></td>
+            <td><span class="badge zone-monde">{{ r.domaine }}</span></td>
+            <td class="logistique">{{ r.extrait }}</td>
+            <td class="prix">{{ r.prix_indicatif or 'sur devis / non indiqué' }}</td>
+            <td class="sous">{{ r.requete }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="sous">Prix indicatifs extraits des extraits de résultats — à confirmer sur la fiche produit du fournisseur. Recouper chaque fournisseur sur au moins 2 sources indépendantes.</p>
+    {% else %}
+    <div class="vide"><h2>Aucun résultat extrait automatiquement</h2>
+      <p>Les moteurs ont peut-être bloqué l'accès automatique. Utilise les liens ci-dessous pour lancer toi-même les recherches.</p></div>
+    {% endif %}
+  </section>
+
+  <section class="mails">
+    <h2>Requêtes prêtes à ouvrir dans ton navigateur</h2>
+    <p class="sous">Clique sur un moteur pour lancer la recherche réelle dans un onglet : c'est la source la plus fiable.</p>
+    {% for bloc in resultat.liens_navigateur %}
+    <div class="mail-bloc">
+      <h3>{{ bloc.requete }}</h3>
+      <div class="boutons">
+        {% for nav in bloc.navigateurs %}
+        <a class="btn secondaire" href="{{ nav.url }}" target="_blank" rel="noopener">Ouvrir sur {{ nav.nom }}</a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+{% endblock %}
