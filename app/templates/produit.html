@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block titre %}{{ produit.designation }} — Offres fournisseurs{% endblock %}
+{% block contenu %}
+  <p><a class="btn secondaire" href="/">← Retour à la recherche</a></p>
+
+  <section class="fiche">
+    <h1>{{ produit.designation }}</h1>
+    <p class="sous">Fabricant : <strong>{{ produit.fabricant }}</strong> · Référence : <strong>{{ produit.reference }}</strong> · Catégorie : {{ produit.categorie }}</p>
+    <ul class="caracs">
+      {% for k, v in produit.caracteristiques.items() %}
+        <li><span class="cle">{{ k }}</span> {{ v }}</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="devis-options">
+    <h2>Paramètres de la demande de devis</h2>
+    <div class="ligne-champs">
+      <label class="champ"><span>Quantité</span><input id="opt-quantite" type="number" min="1" value="1"></label>
+      <label class="champ"><span>Adresse de livraison (France)</span><input id="opt-adresse" type="text" value="France métropolitaine"></label>
+      <label class="champ"><span>Incoterms préférés</span>
+        <select id="opt-incoterms">
+          {% for i in options.incoterms %}<option value="{{ i }}">{{ i }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="champ"><span>Délai souhaité</span><input id="opt-delai" type="text" value="dès que possible"></label>
+    </div>
+  </section>
+
+  <section>
+    <div class="barre-actions">
+      {% set n = lignes | length %}
+      <h2>{{ n }} offre{% if n > 1 %}s{% endif %} fournisseur</h2>
+      <form method="get" action="/produit/{{ produit.id }}" class="tri-form">
+        <label>Tri
+          <select name="tri" onchange="this.form.submit()">
+            {% for v, label in options.tris %}
+              <option value="{{ v }}" {% if tri == v %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </form>
+      <div class="boutons">
+        <button type="button" class="btn" id="btn-emails-publics">Sélectionner ceux avec e-mail public</button>
+        <button type="button" class="btn secondaire" id="btn-tout-deselect">Tout désélectionner</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="resultats" id="table-offres">
+        <thead>
+          <tr>
+            <th>☐</th><th>#</th><th>Fournisseur</th><th>Zone / pays</th><th>Référence produit</th>
+            <th>Prix</th><th>Délai</th><th>Stock</th>
+            <th>Logistique (livraison France, Incoterms, frais de port, enlèvement)</th>
+            <th>Site web</th><th>E-mail de contact</th><th>Téléphone</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in lignes %}
+          <tr class="offre"
+              data-fournisseur="{{ l.fournisseur }}"
+              data-email="{{ l.email }}"
+              data-site="{{ l.site }}"
+              data-prix="{{ l.prix_affiche }}">
+            <td><input type="checkbox" class="select-offre" aria-label="Sélectionner {{ l.fournisseur }}"></td>
+            <td class="num">{{ l.num }}</td>
+            <td>{{ l.fournisseur }}</td>
+            <td><span class="badge zone-{{ l.zone }}">{{ l.zone | capitalize }}</span> {{ l.pays }}</td>
+            <td>{{ l.reference }}</td>
+            <td class="prix">{{ l.prix_affiche }}</td>
+            <td>{{ l.delai }}</td>
+            <td>{{ l.stock_texte }}</td>
+            <td class="logistique">{{ l.logistique }}</td>
+            <td><a href="{{ l.site }}" target="_blank" rel="noopener">site</a></td>
+            <td>{% if l.email %}<a href="mailto:{{ l.email }}">{{ l.email }}</a>{% else %}<em>pas d'e-mail public</em>{% endif %}</td>
+            <td>{{ l.telephone }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="mails" id="zone-mails">
+    <h2>Mails de demande de devis générés</h2>
+    <p class="sous">Cochez les fournisseurs dans le tableau ci-dessus pour générer un mail personnalisé par fournisseur.</p>
+    <div id="liste-mails"></div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var produit = {{ produit | tojson }};
+  var lignes = {{ lignes | tojson }};
+  var table = document.getElementById('table-offres');
+  var liste = document.getElementById('liste-mails');
+
+  function options() {
+    return {
+      quantite: document.getElementById('opt-quantite').value || '1',
+      adresse: document.getElementById('opt-adresse').value || 'France métropolitaine',
+      incoterms: document.getElementById('opt-incoterms').value || 'DDP',
+      delai: document.getElementById('opt-delai').value || 'dès que possible'
+    };
+  }
+
+  function corpsMail(l, o) {
+    return 'Bonjour,\n\n'
+      + 'Nous recherchons ' + o.quantite + ' unité(s) de ' + produit.designation
+      + ' (référence ' + produit.reference + ', fabricant ' + produit.fabricant + ').\n'
+      + 'Merci de nous indiquer : prix unitaire HT et total, délai de livraison, stock disponible, '
+      + 'livraison possible à notre adresse en France (' + o.adresse + ') — à défaut, enlèvement par notre propre transporteur (EXW/FCA) —, '
+      + 'Incoterms proposés (préférence ' + o.incoterms + '), frais de port et conditions de paiement. '
+      + 'Délai souhaité : ' + o.delai + '.\n\n'
+      + 'Cordialement,\n[Votre nom] — [Votre société] — [téléphone]\n'
+      + 'Vous recevez ce message dans le cadre d\'une prospection commerciale B2B. Pour ne plus recevoir nos demandes, répondez « STOP ».';
+  }
+
+  function objetMail() {
+    return 'Demande de devis — ' + produit.designation + ' / réf. ' + produit.reference + ' (' + produit.fabricant + ')';
+  }
+
+  function mettreAJour() {
+    var o = options();
+    var coches = table.querySelectorAll('.select-offre:checked');
+    liste.innerHTML = '';
+    if (coches.length === 0) {
+      liste.innerHTML = '<p class="sous">Aucun fournisseur sélectionné.</p>';
+      return;
+    }
+    coches.forEach(function (cb, i) {
+      var tr = cb.closest('tr');
+      var email = tr.dataset.email;
+      var fournisseur = tr.dataset.fournisseur;
+      var bloc = document.createElement('div');
+      bloc.className = 'mail-bloc';
+      var titre = document.createElement('h3');
+      titre.textContent = (i + 1) + '. ' + fournisseur;
+      bloc.appendChild(titre);
+      if (!email) {
+        var p = document.createElement('p');
+        p.className = 'sous';
+        p.textContent = "Pas d'e-mail public — contacter via le site : " + tr.dataset.site;
+        bloc.appendChild(p);
+        liste.appendChild(bloc);
+        return;
+      }
+      var mailto = 'mailto:' + email + '?subject=' + encodeURIComponent(objetMail())
+        + '&body=' + encodeURIComponent(corpsMail(null, o));
+      var p = document.createElement('p');
+      p.className = 'sous';
+      p.textContent = 'Objet : ' + objetMail();
+      bloc.appendChild(p);
+      var div = document.createElement('div');
+      div.className = 'boutons';
+      var a = document.createElement('a');
+      a.className = 'btn';
+      a.href = mailto;
+      a.textContent = 'Ouvrir dans le client mail';
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn secondaire';
+      b.textContent = 'Copier le mail';
+      b.addEventListener('click', function () {
+        var texte = 'À : ' + email + '\nObjet : ' + objetMail() + '\n\n' + corpsMail(null, o);
+        navigator.clipboard.writeText(texte).then(function () { b.textContent = 'Copié !'; });
+      });
+      div.appendChild(a);
+      div.appendChild(b);
+      bloc.appendChild(div);
+      liste.appendChild(bloc);
+    });
+  }
+
+  table.addEventListener('change', function (e) {
+    if (e.target.classList.contains('select-offre')) {
+      e.target.closest('tr').classList.toggle('selectionnee', e.target.checked);
+      mettreAJour();
+    }
+  });
+  document.getElementById('btn-emails-publics').addEventListener('click', function () {
+    table.querySelectorAll('tr.offre').forEach(function (tr) {
+      var cb = tr.querySelector('.select-offre');
+      cb.checked = !!tr.dataset.email;
+      tr.classList.toggle('selectionnee', cb.checked);
+    });
+    mettreAJour();
+  });
+  document.getElementById('btn-tout-deselect').addEventListener('click', function () {
+    table.querySelectorAll('.select-offre').forEach(function (cb) { cb.checked = false; });
+    table.querySelectorAll('tr.offre').forEach(function (tr) { tr.classList.remove('selectionnee'); });
+    mettreAJour();
+  });
+  ['opt-quantite', 'opt-adresse', 'opt-incoterms', 'opt-delai'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', mettreAJour);
+  });
+  mettreAJour();
+})();
+</script>
+{% endblock %}
